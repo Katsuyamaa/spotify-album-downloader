@@ -6,37 +6,40 @@ body {
     color: #fff;
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding: 3rem 1rem;
 }
 
 .container {
     width: 100%;
-    max-width: 560px;
-    padding: 2rem;
-    text-align: center;
+    max-width: 660px;
 }
 
 h1 {
     font-size: 2rem;
     margin-bottom: 0.5rem;
     color: #1db954;
+    text-align: center;
 }
 
 .subtitle {
     color: #b3b3b3;
     margin-bottom: 2rem;
     font-size: 0.95rem;
+    text-align: center;
 }
 
 #download-form {
     display: flex;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.75rem;
     margin-bottom: 1.5rem;
 }
 
-input[type="url"] {
-    flex: 1;
+input[type="url"],
+input[type="text"] {
+    width: 100%;
     padding: 0.75rem 1rem;
     border-radius: 4px;
     border: 1px solid #333;
@@ -46,7 +49,20 @@ input[type="url"] {
     outline: none;
 }
 
-input[type="url"]:focus { border-color: #1db954; }
+input[type="url"]:focus,
+input[type="text"]:focus { border-color: #1db954; }
+
+.folder-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    text-align: left;
+}
+
+.folder-row label {
+    color: #b3b3b3;
+    font-size: 0.8rem;
+}
 
 button {
     padding: 0.75rem 1.5rem;
@@ -58,39 +74,36 @@ button {
     cursor: pointer;
     font-size: 0.9rem;
     transition: background 0.2s;
+    width: 100%;
 }
 
 button:hover:not(:disabled) { background: #1ed760; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-#status {
+#log-box {
+    background: #0a0a0a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 1rem;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+#log {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    color: #b3b3b3;
-    font-size: 0.9rem;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
-.spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid #444;
-    border-top-color: #1db954;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+.log-line {
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 0.82rem;
+    color: #ccc;
+    word-break: break-all;
+    padding: 0.1rem 0;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.error {
-    color: #e74c3c;
-    font-size: 0.9rem;
-    background: #2a1a1a;
-    padding: 0.75rem 1rem;
-    border-radius: 4px;
-    border-left: 3px solid #e74c3c;
-    text-align: left;
-}
+.log-line.success { color: #1db954; font-weight: 600; }
+.log-line.error   { color: #e74c3c; }
 
 .hidden { display: none !important; }

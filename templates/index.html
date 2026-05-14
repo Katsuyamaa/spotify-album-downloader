@@ -3,71 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spotify Album İndirici</title>
+    <title>Spotify İndirici</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Spotify Album İndirici</h1>
-        <p class="subtitle">Albüm linkini yapıştır, tüm şarkıları MP3 olarak indir.</p>
+        <h1>Spotify İndirici</h1>
+        <p class="subtitle">Şarkı, albüm veya liste linkini yapıştır — MP3'ler klasöre kaydedilir.</p>
 
         <form id="download-form">
             <input
                 type="url"
                 name="url"
                 id="url"
-                placeholder="https://open.spotify.com/album/..."
+                placeholder="https://open.spotify.com/..."
                 required
             >
+            <div class="folder-row">
+                <label for="output_dir">Kayıt klasörü:</label>
+                <input
+                    type="text"
+                    name="output_dir"
+                    id="output_dir"
+                    value="{{ default_output }}"
+                >
+            </div>
             <button type="submit" id="submit-btn">İndir</button>
         </form>
 
-        <div id="status" class="hidden">
-            <div class="spinner"></div>
-            <span>İndiriliyor... Bu birkaç dakika sürebilir.</span>
+        <div id="log-box" class="hidden">
+            <div id="log"></div>
         </div>
-
-        <div id="error" class="hidden error"></div>
     </div>
 
     <script>
         const form = document.getElementById("download-form");
-        const statusEl = document.getElementById("status");
-        const errorEl = document.getElementById("error");
+        const logBox = document.getElementById("log-box");
+        const log = document.getElementById("log");
         const submitBtn = document.getElementById("submit-btn");
 
-        form.addEventListener("submit", async (e) => {
+        form.addEventListener("submit", (e) => {
             e.preventDefault();
-            const url = document.getElementById("url").value;
 
-            statusEl.classList.remove("hidden");
-            errorEl.classList.add("hidden");
+            log.innerHTML = "";
+            logBox.classList.remove("hidden");
             submitBtn.disabled = true;
+            submitBtn.textContent = "İndiriliyor...";
 
-            try {
-                const response = await fetch("/download", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: new URLSearchParams({ url }),
-                });
+            const params = new URLSearchParams({
+                url: document.getElementById("url").value,
+                output_dir: document.getElementById("output_dir").value,
+            });
 
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(text);
+            const evtSource = new EventSource("/download?" + params.toString());
+
+            evtSource.onmessage = (e) => {
+                if (e.data === "__DONE__") {
+                    evtSource.close();
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "İndir";
+                    return;
                 }
+                const line = document.createElement("div");
+                line.className = "log-line";
+                if (e.data.startsWith("✅")) line.classList.add("success");
+                if (e.data.startsWith("❌")) line.classList.add("error");
+                line.textContent = e.data;
+                log.appendChild(line);
+                log.scrollTop = log.scrollHeight;
+            };
 
-                const blob = await response.blob();
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = "album.zip";
-                a.click();
-            } catch (err) {
-                errorEl.textContent = err.message || "Bir hata oluştu.";
-                errorEl.classList.remove("hidden");
-            } finally {
-                statusEl.classList.add("hidden");
+            evtSource.onerror = () => {
+                evtSource.close();
+                const line = document.createElement("div");
+                line.className = "log-line error";
+                line.textContent = "❌ Bağlantı kesildi.";
+                log.appendChild(line);
                 submitBtn.disabled = false;
-            }
+                submitBtn.textContent = "İndir";
+            };
         });
     </script>
 </body>

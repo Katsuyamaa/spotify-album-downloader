@@ -1,11 +1,7 @@
 import os
-import shutil
 import subprocess
-import tempfile
-import zipfile
-from io import BytesIO
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, send_file, make_response
+from flask import Flask, render_template, request, Response, stream_with_context, make_response
 
 load_dotenv()
 
@@ -15,61 +11,62 @@ SPOTIFY_URL_PREFIX = "https://open.spotify.com/"
 SPOTDL_FFMPEG = os.path.join(os.path.expanduser("~"), ".spotdl", "ffmpeg.exe")
 SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID", "")
 SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
+DEFAULT_OUTPUT = os.path.join(os.path.expanduser("~"), "Music", "Spotify")
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", default_output=DEFAULT_OUTPUT)
 
-@app.route("/download", methods=["POST"])
+@app.route("/download", methods=["GET"])
 def download():
-    url = request.form.get("url", "").strip()
+    url = request.args.get("url", "").strip()
+    output_dir = request.args.get("output_dir", DEFAULT_OUTPUT).strip() or DEFAULT_OUTPUT
 
     if not url or not url.startswith(SPOTIFY_URL_PREFIX):
         return make_response("Geçerli bir Spotify linki girin (şarkı, albüm veya liste).", 400)
 
-    tmpdir = tempfile.mkdtemp(prefix="spotify_")
-    try:
-        cmd = [
-            "spotdl", url,
-            "--output", tmpdir,
-            "--audio", "youtube", "soundcloud",
-            "--ffmpeg", SPOTDL_FFMPEG,
-            "--no-cache",
-            "--dont-filter-results",
-        ]
-        if SPOTIFY_CLIENT_ID:
-            cmd += ["--client-id", SPOTIFY_CLIENT_ID]
-        if SPOTIFY_CLIENT_SECRET:
-            cmd += ["--client-secret", SPOTIFY_CLIENT_SECRET]
+    os.makedirs(output_dir, exist_ok=True)
 
+    cmd = [
+        "spotdl", url,
+        "--output", os.path.join(output_dir, "{artists} - {title}.{output-ext}"),
+        "--audio", "youtube", "soundcloud",
+        "--ffmpeg", SPOTDL_FFMPEG,
+        "--no-cache",
+        "--dont-filter-results",
+        "--threads", "1",
+    ]
+    if SPOTIFY_CLIENT_ID:
+        cmd += ["--client-id", SPOTIFY_CLIENT_ID]
+    if SPOTIFY_CLIENT_SECRET:
+        cmd += ["--client-secret", SPOTIFY_CLIENT_SECRET]
+
+    def generate():
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-        except subprocess.TimeoutExpired:
-            return make_response("İndirme zaman aşımına uğradı (10 dk). Liste çok büyük olabilir.", 400)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            for line in proc.stdout:
+                line = line.strip()
+                if line:
+                    yield f"data: {line}\n\n"
+            proc.wait()
+            if proc.returncode == 0:
+                yield f"data: ✅ Tamamlandı! Dosyalar: {output_dir}\n\n"
+                yield "data: __DONE__\n\n"
+            else:
+                yield "data: ❌ Hata oluştu. Yukarıdaki çıktıya bakın.\n\n"
+                yield "data: __DONE__\n\n"
+        except Exception as e:
+            yield f"data: ❌ Beklenmeyen hata: {e}\n\n"
+            yield "data: __DONE__\n\n"
 
-        if result.returncode != 0:
-            error_detail = (result.stderr or result.stdout or "Bilinmeyen hata").strip()
-            app.logger.error("spotdl failed: %s", error_detail)
-            return make_response(f"İndirme başarısız:\n{error_detail}", 400)
-
-        mp3_files = [f for f in os.listdir(tmpdir) if os.path.isfile(os.path.join(tmpdir, f))]
-        if not mp3_files:
-            return make_response("İndirilecek şarkı bulunamadı.", 400)
-
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            for filename in mp3_files:
-                zf.write(os.path.join(tmpdir, filename), filename)
-        zip_buffer.seek(0)
-
-        return send_file(
-            zip_buffer,
-            mimetype="application/zip",
-            as_attachment=True,
-            download_name="album.zip",
-        )
-    finally:
-        shutil.rmtree(tmpdir, ignore_errors=True)
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 if __name__ == "__main__":
     app.run(debug=True)

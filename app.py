@@ -19,19 +19,20 @@ def download():
     url = request.form.get("url", "").strip()
 
     if not url or not url.startswith(SPOTIFY_URL_PREFIX):
-        return make_response("Geçerli bir Spotify albüm linki girin.", 400)
+        return make_response("Geçerli bir Spotify linki girin (şarkı, albüm veya liste).", 400)
 
     tmpdir = tempfile.mkdtemp(prefix="spotify_")
     try:
         result = subprocess.run(
-            ["spotdl", url, "--output", tmpdir],
+            ["spotdl", url, "--output", tmpdir, "--audio", "piped", "youtube", "soundcloud"],
             capture_output=True,
             text=True,
         )
 
         if result.returncode != 0:
-            app.logger.error("spotdl failed: %s", result.stderr)
-            return make_response("İndirme başarısız oldu. Lütfen geçerli bir Spotify albüm linki girdiğinizden emin olun.", 400)
+            error_detail = (result.stderr or result.stdout or "Bilinmeyen hata").strip()
+            app.logger.error("spotdl failed: %s", error_detail)
+            return make_response(f"İndirme başarısız:\n{error_detail}", 400)
 
         if not os.listdir(tmpdir):
             return make_response("İndirilecek şarkı bulunamadı.", 400)

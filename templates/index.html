@@ -2,18 +2,73 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spotify Album İndirici</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <h1>Spotify Album İndirici</h1>
-        <form id="download-form" method="POST" action="/download">
-            <input type="url" name="url" id="url" placeholder="Spotify albüm linki yapıştır..." required>
-            <button type="submit">İndir</button>
+        <p class="subtitle">Albüm linkini yapıştır, tüm şarkıları MP3 olarak indir.</p>
+
+        <form id="download-form">
+            <input
+                type="url"
+                name="url"
+                id="url"
+                placeholder="https://open.spotify.com/album/..."
+                required
+            >
+            <button type="submit" id="submit-btn">İndir</button>
         </form>
-        <div id="status"></div>
-        <div id="error"></div>
+
+        <div id="status" class="hidden">
+            <div class="spinner"></div>
+            <span>İndiriliyor... Bu birkaç dakika sürebilir.</span>
+        </div>
+
+        <div id="error" class="hidden error"></div>
     </div>
+
+    <script>
+        const form = document.getElementById("download-form");
+        const statusEl = document.getElementById("status");
+        const errorEl = document.getElementById("error");
+        const submitBtn = document.getElementById("submit-btn");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const url = document.getElementById("url").value;
+
+            statusEl.classList.remove("hidden");
+            errorEl.classList.add("hidden");
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch("/download", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({ url }),
+                });
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(text);
+                }
+
+                const blob = await response.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "album.zip";
+                a.click();
+            } catch (err) {
+                errorEl.textContent = err.message || "Bir hata oluştu.";
+                errorEl.classList.remove("hidden");
+            } finally {
+                statusEl.classList.add("hidden");
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>

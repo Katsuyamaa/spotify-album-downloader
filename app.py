@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import tempfile
 import zipfile
@@ -29,9 +30,11 @@ def download():
         )
 
         if result.returncode != 0:
-            return make_response(
-                f"İndirme başarısız: {result.stderr or 'Bilinmeyen hata'}", 400
-            )
+            app.logger.error("spotdl failed: %s", result.stderr)
+            return make_response("İndirme başarısız oldu. Lütfen geçerli bir Spotify albüm linki girdiğinizden emin olun.", 400)
+
+        if not os.listdir(tmpdir):
+            return make_response("İndirilecek şarkı bulunamadı.", 400)
 
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -48,11 +51,7 @@ def download():
             download_name="album.zip",
         )
     finally:
-        for filename in os.listdir(tmpdir):
-            filepath = os.path.join(tmpdir, filename)
-            if os.path.isfile(filepath):
-                os.remove(filepath)
-        os.rmdir(tmpdir)
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -1,3 +1,8 @@
+import os
+import zipfile
+from io import BytesIO
+from unittest.mock import patch, MagicMock
+
 import pytest
 from app import app
 
@@ -15,11 +20,6 @@ def test_index_contains_form(client):
     response = client.get("/")
     assert b"form" in response.data
     assert b"url" in response.data
-
-import os
-from unittest.mock import patch, MagicMock
-import zipfile
-from io import BytesIO
 
 def test_download_missing_url_returns_400(client):
     response = client.post("/download", data={})
@@ -62,6 +62,22 @@ def test_download_spotdl_failure_returns_400(client):
         return result
 
     with patch("app.subprocess.run", side_effect=fake_run_fail):
+        response = client.post(
+            "/download",
+            data={"url": "https://open.spotify.com/album/abc123"}
+        )
+
+    assert response.status_code == 400
+
+def test_download_empty_result_returns_400(client):
+    def fake_run_empty(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stderr = ""
+        # Don't create any files — simulate spotdl downloading nothing
+        return result
+
+    with patch("app.subprocess.run", side_effect=fake_run_empty):
         response = client.post(
             "/download",
             data={"url": "https://open.spotify.com/album/abc123"}

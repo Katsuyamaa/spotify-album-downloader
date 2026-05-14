@@ -4,7 +4,10 @@ import subprocess
 import tempfile
 import zipfile
 from io import BytesIO
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, send_file, make_response
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -69,6 +72,4 @@ def download():
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-    load_dotenv()
     app.run(debug=True)

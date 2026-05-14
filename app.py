@@ -23,11 +23,17 @@ def download():
 
     tmpdir = tempfile.mkdtemp(prefix="spotify_")
     try:
-        result = subprocess.run(
-            ["spotdl", url, "--output", tmpdir, "--audio", "piped", "youtube", "soundcloud"],
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                ["spotdl", url, "--output", tmpdir,
+                 "--audio", "soundcloud", "piped", "youtube",
+                 "--no-cache"],
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+        except subprocess.TimeoutExpired:
+            return make_response("İndirme zaman aşımına uğradı (5 dk). Şarkı sayısı fazlaysa tekrar dene.", 400)
 
         if result.returncode != 0:
             error_detail = (result.stderr or result.stdout or "Bilinmeyen hata").strip()

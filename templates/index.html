@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Spotify Album İndirici</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Spotify Album İndirici</h1>
+        <form id="download-form" method="POST" action="/download">
+            <input type="url" name="url" id="url" placeholder="Spotify albüm linki yapıştır..." required>
+            <button type="submit">İndir</button>
+        </form>
+        <div id="status"></div>
+        <div id="error"></div>
+    </div>
+</body>
+</html>

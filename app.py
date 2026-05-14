@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, Response, stream_with_context, make_response
@@ -24,6 +25,17 @@ def download():
 
     if not url or not url.startswith(SPOTIFY_URL_PREFIX):
         return make_response("Geçerli bir Spotify linki girin (şarkı, albüm veya liste).", 400)
+
+    # Spotify editorial playlists (37i9dQZF1...) are not accessible via API
+    playlist_id_match = re.search(r"/playlist/([A-Za-z0-9]+)", url)
+    if playlist_id_match and playlist_id_match.group(1).startswith("37i9dQZF1"):
+        return make_response(
+            "Bu Spotify'ın kendi editör listesi (Top 50, Viral 50, Daily Mix vb.). "
+            "Bu listeler Spotify API üzerinden erişilemez.\n\n"
+            "Çözüm: Spotify'da listeyi aç → ••• menüsü → 'Kopyasını oluştur' → "
+            "kendi listeni oluştur → o listenin linkini kullan.",
+            400
+        )
 
     os.makedirs(output_dir, exist_ok=True)
 

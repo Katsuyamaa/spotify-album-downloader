@@ -41,7 +41,12 @@ def download():
     if SPOTIFY_CLIENT_SECRET:
         cmd += ["--client-secret", SPOTIFY_CLIENT_SECRET]
 
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+
     def generate():
+        downloaded = 0
         try:
             proc = subprocess.Popen(
                 cmd,
@@ -50,18 +55,23 @@ def download():
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                env=env,
             )
             for line in proc.stdout:
                 line = line.strip()
-                if line:
-                    yield f"data: {line}\n\n"
+                if not line:
+                    continue
+                if line.startswith("Downloaded"):
+                    downloaded += 1
+                yield f"data: {line}\n\n"
             proc.wait()
-            if proc.returncode == 0:
+            if downloaded > 0:
+                yield f"data: ✅ Tamamlandı! {downloaded} şarkı indirildi → {output_dir}\n\n"
+            elif proc.returncode == 0:
                 yield f"data: ✅ Tamamlandı! Dosyalar: {output_dir}\n\n"
-                yield "data: __DONE__\n\n"
             else:
-                yield "data: ❌ Hata oluştu. Yukarıdaki çıktıya bakın.\n\n"
-                yield "data: __DONE__\n\n"
+                yield "data: ❌ Hiçbir şarkı indirilemedi.\n\n"
+            yield "data: __DONE__\n\n"
         except Exception as e:
             yield f"data: ❌ Beklenmeyen hata: {e}\n\n"
             yield "data: __DONE__\n\n"
